@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src mdasset: data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <title>简墨</title>
+  <link rel="stylesheet" href="./renderer.css">
+  <script src="./renderer.js" defer></script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">简</span><span>简墨</span><span class="brand-caption">READ SIMPLY</span></div>
+      <div id="tabs" class="tabs" role="tablist" aria-label="已打开的文档"></div>
+      <button id="open-tab" class="icon-button add-tab" title="打开 Markdown 文件 (Ctrl+O)" aria-label="打开 Markdown 文件"></button>
+    </header>
+    <div class="workspace">
+      <aside id="sidebar" class="sidebar" aria-label="文档导航">
+        <div class="sidebar-switcher" role="tablist" aria-label="导航方式">
+          <button id="outline-tab" class="sidebar-tab active" role="tab" aria-selected="true" aria-controls="outline-panel">大纲</button>
+          <button id="files-tab" class="sidebar-tab" role="tab" aria-selected="false" aria-controls="files-panel">文件</button>
+        </div>
+        <div id="outline-panel" class="sidebar-panel" role="tabpanel" aria-labelledby="outline-tab">
+          <div class="section-label">本文目录 <span id="heading-count"></span></div>
+          <nav id="outline" aria-label="文档目录"></nav>
+          <div class="sidebar-note">文字自有力量<br>留一点时间，慢慢阅读。</div>
+        </div>
+        <div id="files-panel" class="sidebar-panel" role="tabpanel" aria-labelledby="files-tab" hidden>
+          <div class="section-label">已打开 <span id="file-count">0</span></div>
+          <div id="open-file-list"></div>
+          <section class="recent-section" aria-label="最近打开">
+            <div class="section-label"><span>最近打开</span><button id="clear-history" class="small-text-button" title="仅清除记录，不删除文件">清除</button></div>
+            <div id="recent-file-list"></div>
+          </section>
+          <div class="folder-section">
+            <div class="section-label"><span>文件夹</span><button id="choose-folder" class="small-icon" title="选择一个文件夹" aria-label="选择一个文件夹"></button></div>
+            <div id="folder-tree"><button id="folder-empty" class="folder-empty">选择文件夹<span>浏览其中的 Markdown 文件</span></button></div>
+          </div>
+        </div>
+        <div class="sidebar-footer"><span class="offline-dot"></span>本地阅读 · 安心离线</div>
+      </aside>
+      <div id="sidebar-resizer" class="sidebar-resizer" role="separator" tabindex="0" aria-label="调整侧栏宽度" aria-orientation="vertical" aria-controls="sidebar" aria-valuemin="180" aria-valuemax="480" aria-valuenow="260" title="拖动调整侧栏宽度；方向键微调，Shift 加速"></div>
+      <main class="reading-pane">
+        <div class="toolbar">
+          <div class="toolbar-leading"><button id="toggle-sidebar" class="icon-button" title="切换侧栏 (Ctrl+Shift+B)" aria-label="切换侧栏" aria-expanded="true"></button><span class="toolbar-divider"></span><span id="document-label" class="document-label">开始阅读</span></div>
+          <div class="toolbar-actions">
+            <button id="open-button" class="text-button" title="打开文件 (Ctrl+O)"><span class="button-icon" id="open-icon"></span>打开文件</button>
+            <button id="find-toggle" class="icon-button" title="查找 (Ctrl+F)" aria-label="查找"></button>
+            <button id="appearance-toggle" class="icon-button appearance-toggle" title="阅读设置" aria-label="阅读设置" aria-expanded="false" aria-controls="appearance-panel">Aa</button>
+            <button id="theme-toggle" class="icon-button" title="切换深色模式" aria-label="切换深色模式"></button>
+          </div>
+        </div>
+        <div class="editor-commandbar">
+          <button id="new-document" title="新建 (Ctrl+N)">新建</button><button id="save-document" title="保存 (Ctrl+S)">保存</button><button id="save-as" title="另存为 (Ctrl+Shift+S)">另存为</button>
+          <span class="editor-spacer"></span><div class="mode-switch" role="group" aria-label="文档模式"><button data-mode="edit">编辑</button><button data-mode="split">编辑 / 预览</button><button data-mode="read">阅读</button></div>
+        </div>
+        <div id="format-toolbar" class="format-toolbar" aria-label="Markdown 格式工具">
+          <button data-format="bold" title="粗体 (Ctrl+B)"><b>B</b></button><button data-format="italic" title="斜体 (Ctrl+I)"><i>I</i></button><button data-format="heading" title="二级标题">H2</button><button data-format="strike" title="删除线"><s>S</s></button><button data-format="list" title="无序列表">列表</button><button data-format="task" title="任务列表">待办</button><button data-format="quote" title="引用">引用</button><button data-format="code" title="代码块">代码</button><button data-format="link" title="链接">链接</button><button data-format="table" title="表格">表格</button>
+          <label title="选中文字后应用，保存为 HTML span">文字大小 <select id="selection-size" aria-label="选中文字大小"><option value="">字号</option><option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>32</option><option>40</option><option>48</option></select></label>
+          <label title="选中文字后应用，保存为 HTML span">文字颜色 <input id="selection-color" type="color" value="#b54a3f" aria-label="选中文字颜色"></label><button id="apply-color">应用颜色</button>
+          <button id="undo-edit" title="撤销 (Ctrl+Z)">撤销</button><button id="redo-edit" title="重做 (Ctrl+Y)">重做</button>
+        </div>
+        <div id="style-hint" class="style-hint" hidden>字号和颜色使用 HTML span 保存；部分 Markdown 平台会忽略样式。右上角 Aa 仅调整本机阅读显示。</div>
+        <div id="find-bar" class="find-bar" role="search" hidden>
+          <label for="find-input" class="sr-only">在文档中查找</label>
+          <input id="find-input" type="search" placeholder="在文档中查找…" autocomplete="off" spellcheck="false">
+          <input id="replace-input" placeholder="替换为…" aria-label="替换内容"><button id="replace-one">替换</button><button id="replace-all">全部替换</button><span id="find-result" class="find-result" aria-live="polite"></span>
+          <button id="find-case" class="small-icon case-toggle" aria-label="区分大小写" aria-pressed="false" title="区分大小写">Aa</button>
+          <button id="find-previous" class="small-icon" aria-label="上一个结果" title="上一个 (Shift+Enter)"></button>
+          <button id="find-next" class="small-icon" aria-label="下一个结果" title="下一个 (Enter)"></button>
+          <button id="find-close" class="small-icon" aria-label="关闭查找" title="关闭 (Esc)"></button>
+        </div>
+        <section id="appearance-panel" class="appearance-panel" aria-label="阅读设置" hidden>
+          <div class="popover-heading">阅读设置</div>
+          <div class="setting-label">正文字号 <span id="font-value">18 px</span></div>
+          <div class="font-controls"><button id="font-decrease" aria-label="缩小字号">A−</button><button id="font-reset">恢复默认</button><button id="font-increase" aria-label="放大字号">A+</button></div>
+          <div class="setting-label setting-spaced">正文字体</div>
+          <div class="setting-choices font-choices" role="group" aria-label="正文字体"><button data-font-choice="sans">现代黑体</button><button data-font-choice="serif">阅读宋体</button></div>
+          <div class="setting-label setting-spaced">段落行距</div>
+          <div class="setting-choices" role="group" aria-label="段落行距"><button data-line-height="1.6">紧凑 1.6</button><button data-line-height="1.8">舒适 1.8</button><button data-line-height="2">宽松 2.0</button></div>
+          <div class="setting-label theme-label">外观</div>
+          <div class="theme-choices" role="group" aria-label="外观主题"><button data-theme-choice="light">浅色</button><button data-theme-choice="dark">深色</button><button data-theme-choice="system">跟随系统</button></div>
+          <div class="session-settings">
+            <label class="setting-toggle" for="restore-session"><span>下次继续上次阅读</span><input id="restore-session" type="checkbox"></label>
+            <label class="setting-toggle" for="auto-refresh"><span>文件变化时自动刷新</span><input id="auto-refresh" type="checkbox"></label>
+          </div>
+          <p class="settings-hint">设置自动保存。最近文件路径、标签与阅读位置仅保存在本机，不上传文档内容。</p>
+        </section>
+        <div id="document-notice" class="document-notice" role="status" aria-live="polite" hidden><span id="document-notice-text"></span><button id="notice-reload">重试载入</button><button id="notice-close">关闭标签</button></div>
+        <div id="document-workspace" class="document-workspace" data-mode="read"><textarea id="source-editor" aria-label="Markdown 源码编辑器" spellcheck="false" wrap="soft" hidden></textarea><div id="scroll-container" class="scroll-container" tabindex="0" aria-label="文档阅读区域">
+          <div class="document-wrap">
+            <div id="document-meta" class="document-meta"></div>
+            <article id="article" class="markdown-body"></article>
+            <div class="document-end" aria-hidden="true"><span></span><i>读至此处</i><span></span></div>
+          </div>
+        </div>
+        </div><footer class="statusbar"><div class="status-left"><span id="status-icon"></span><span id="status-document">欢迎使用</span><span class="status-separator">·</span><span id="status-words"></span><span class="status-separator">·</span><span id="status-time"></span></div><div class="status-right"><span id="status-encoding">UTF-8</span><button id="status-font" title="阅读设置">18 px</button><span id="status-progress">0%</span></div></footer>
+      </main>
+    </div>
+    <div id="drop-overlay" class="drop-overlay" hidden><div class="drop-card"><div id="drop-icon"></div><strong>放下文件，开始阅读</strong><span>支持 .md · .markdown · .mdown</span></div></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+</body>
+</html>

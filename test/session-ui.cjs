@@ -1,0 +1,40 @@
+'use strict';
+const {_electron:electron}=require('playwright');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const os=require('node:os');
+const assert=require('node:assert/strict');
+(async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'jianmo-session-ui-'));const config=path.join(root,'config');const file=path.join(root,'测试文档.md'),other=path.join(root,'另一个标签.md');
+ const paragraph='长文阅读的位置应该被保留。这个段落用于验证修改、重启和字体变化后的阅读体验。\n\n';
+ const body='# 改进阅读体验\n\n## 正文\n\n'+paragraph.repeat(120);
+ await fs.writeFile(file,body);await fs.writeFile(other,'# 另一个标签\n\n独立内容。');
+ const cloud=process.env.JIANMO_CLOUD_TEST==='1';
+ const launch=async(files=[])=>electron.launch({executablePath:require('electron'),args:[...(cloud?['--no-sandbox']:[]),cloud?(process.env.JIANMO_TEST_PACKAGED==='1'?'test/packaged-harness.cjs':'test/linux-harness.cjs'):'.',...files],env:{...process.env,XDG_CONFIG_HOME:config,XDG_CACHE_HOME:'/tmp/jianmo-cache'},timeout:25000});
+ let app=await launch([file,other]);let count=0;const pass=s=>{console.log('PASS',++count,s);};
+ try{
+  let page=await app.firstWindow();await page.waitForFunction(()=>document.querySelectorAll('.tab').length===2);
+  await page.locator('.tab').filter({hasText:'测试文档.md'}).click();await page.waitForTimeout(120);
+  await page.evaluate(()=>document.querySelector('#scroll-container').scrollTop=900);await page.waitForTimeout(700);
+  await page.evaluate(()=>window.reader.setPreferences({sidebarWidth:350,fontFamily:'serif',lineHeight:2}));
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
+  await app.waitForEvent('close',{timeout:10000});
+  app=await launch();page=await app.firstWindow();await page.waitForFunction(()=>document.querySelectorAll('.tab').length===2);
+  await page.waitForFunction(()=>document.querySelector('#article h1')?.textContent==='改进阅读体验');await page.waitForTimeout(300);
+  assert.ok(await page.locator('#scroll-container').evaluate(el=>el.scrollTop)>750);pass('restart restores both real tabs, active tab and reading position');
+  const prefs=await page.evaluate(()=>window.reader.getPreferences());assert.equal(prefs.sidebarWidth,350);assert.equal(prefs.fontFamily,'serif');assert.equal(prefs.lineHeight,2);pass('sidebar/font/line-height preferences survive real restart');
+  const before=await page.locator('#scroll-container').evaluate(el=>el.scrollTop);
+  await fs.writeFile(file,body+'\n新增的外部修改。\n');await page.waitForFunction(()=>document.querySelector('#article').textContent.includes('新增的外部修改'),{},{timeout:6000});
+  assert.ok(Math.abs(await page.locator('#scroll-container').evaluate(el=>el.scrollTop)-before)<160);assert.equal(await page.locator('.tab').count(),2);pass('external edit refreshes automatically without duplicate tabs or top jump');
+  await page.locator('.tab').filter({hasText:'另一个标签.md'}).click();await fs.writeFile(file,body+'\n后台标签已更新。\n');await page.waitForTimeout(1900);
+  assert.equal(await page.locator('#article h1').textContent(),'另一个标签');await page.locator('.tab').filter({hasText:'测试文档.md'}).click();await page.waitForFunction(()=>document.querySelector('#article').textContent.includes('后台标签已更新'));pass('background refresh does not steal active tab');
+  await page.evaluate(()=>window.reader.setPreferences({autoRefresh:false}));await fs.writeFile(file,body+'\n暂停刷新标记。\n');await page.waitForTimeout(1900);assert.equal(await page.locator('#article').evaluate(el=>el.textContent.includes('暂停刷新标记')),false);pass('auto-refresh toggle actually suspends background reload');
+  await page.evaluate(()=>window.reader.setPreferences({autoRefresh:true}));await page.waitForFunction(()=>document.querySelector('#article').textContent.includes('暂停刷新标记'),{},{timeout:6000});
+  await fs.unlink(file);await page.waitForTimeout(1900);assert.ok(await page.locator('#article').evaluate(el=>el.textContent.includes('暂停刷新标记')));assert.ok((await page.locator('body').innerText()).includes('删除'));pass('deleted file keeps readable content and a nonblocking missing-file warning');
+  await fs.writeFile(file,body+'\n恢复文件标记。\n');await page.waitForFunction(()=>document.querySelector('#article').textContent.includes('恢复文件标记'),{},{timeout:6000});pass('reappearing file resumes refresh safely');
+  const history=await page.evaluate(()=>window.reader.getHistory());assert.equal(history.length,2);assert.ok(history.every(item=>item.id&&item.path&&item.name));await page.evaluate(()=>window.reader.clearHistory());assert.equal((await page.evaluate(()=>window.reader.getHistory())).length,0);pass('recent files list and clear persist correctly');
+  await page.evaluate(()=>window.reader.setPreferences({restoreSession:false}));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());await app.waitForEvent('close',{timeout:10000});
+  app=await launch();page=await app.firstWindow();await page.waitForSelector('#article h1');await page.waitForTimeout(250);assert.equal(await page.locator('.tab').count(),1);assert.ok((await page.locator('.tab').innerText()).includes('欢迎'));pass('disabling session restoration leaves a clean next startup');
+  console.log(`${count} real Electron v1.1 persistence/refresh assertions passed.`);
+ }finally{await app.close().catch(()=>{});await fs.rm(root,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exit(1);});

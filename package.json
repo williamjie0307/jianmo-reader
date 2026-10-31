@@ -1,0 +1,91 @@
+{
+  "name": "jianmo-reader",
+  "productName": "Jianmo Reader",
+  "version": "1.2.0",
+  "description": "简墨 · 离线 Markdown 编辑器与阅读器",
+  "main": "src/main.cjs",
+  "author": "Jianmo Reader",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "start": "npm run build && electron .",
+    "test": "node --test test/*.test.cjs",
+    "test:ui": "node test/ui.cjs",
+    "dist:win": "npm run build && node scripts/package-win.cjs"
+  },
+  "build": {
+    "appId": "local.jianmo.reader",
+    "productName": "Jianmo Reader",
+    "copyright": "Copyright © 2026 Jianmo Reader contributors",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/main.cjs",
+      "src/preload.cjs",
+      "src/security.cjs",
+      "dist/**/*",
+      "package.json",
+      "THIRD-PARTY-LICENSES.txt",
+      "LICENSE",
+      "README.md",
+      "src/state.cjs",
+      "src/save.cjs"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "Jianmo-Reader-${version}-Windows-x64-Setup.${ext}",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "include": "build/installer.nsh",
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ],
+      "language": "2052",
+      "displayLanguageSelector": true,
+      "unicode": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "differentialPackage": false
+    },
+    "afterPack": "scripts/after-pack.cjs",
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US",
+      "zh-CN",
+      "zh-TW"
+    ]
+  },
+  "dependencies": {
+    "dompurify": "^3.4.16",
+    "highlight.js": "^11.12.0",
+    "iconv-lite": "^0.7.3",
+    "katex": "^0.19.0",
+    "markdown-it": "^15.0.2",
+    "markdown-it-texmath": "^1.0.0"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.3.1",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.64.0",
+    "resedit": "^3.1.0"
+  }
+}

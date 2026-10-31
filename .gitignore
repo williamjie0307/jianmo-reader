@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+deliverables/
+library-download-check/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
+test/.*-test-*/
+test/.security-test-*/
+test/.state-test-*/
+test/.save-test-*/
